@@ -1,0 +1,5 @@
+WAZUH_ACC = 'admin'
+WAZUH_PASS = 'admin'
+WAZUH_IP = 'https://172.104.138.12'
+WAZUH_PORT = ':9200'
+LEVEL_THRESHOLD = 8
