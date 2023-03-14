@@ -7,6 +7,7 @@ from user_data import userdata
 def get_logs(date):
     '''
     Get wazuh logs for given date from elasticsearch API
+    
     :param date: (String) Date for which you want the logs for. Format: yyyy.mm.dd, for example "2023.03.14"
     :return events: (list) List of recorded events with security level higher than threshold. Includes event description & timestamp
     :return logs_total: (String) String that indicates how many logs were analyzed in total
