@@ -72,7 +72,7 @@ def get_logs(date):
         logs_total = f"Analyzed {total_value} logs."
         meaningful_total = f"Found {count} records of meaningful log events."
 
-        return events, logs_total, meaningful_total
+    return events, logs_total, meaningful_total
 
 
 
