@@ -43,13 +43,14 @@ def get_logs(date):
                     read_data = json.loads(read_data)
                     read_big_data[str(scroll_count)] = read_data
                     print("10 000 hits")
+    # In the event of random error
     except Exception:
         traceback.print_exc()
         read_data = {}
     # If no log entries were recorded for given date
     if 'error' in read_data.keys():
     #print(read_data['error']['reason'])
-        print("No log data available for given date")
+        events.append("No log events recorded for the given date.")
 
     else:
         if read_data:
