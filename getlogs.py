@@ -6,12 +6,12 @@ from user_data import userdata
 
 def get_logs(date):
     '''
-    Get wazuh logs for given date from elasticsearch API
+    Get wazuh logs for given date from elasticsearch API. Return meaningful events as a list.
 
-    :param date: (String) Date for which you want the logs for. Format: yyyy.mm.dd, for example "2023.03.14"
-    :return events: (list) List of recorded events with security level higher than threshold. Includes event description & timestamp
-    :return logs_total: (String) String that indicates how many logs were analyzed in total
-    :return meaningful_total: (String) String that indicates how many logs were analyzed with security level higher than theshold.
+    :param date: (String) Date for which you want the logs for. Format: yyyy.mm.dd, for example "2023.03.14".
+    :return events: (list) List of recorded events with security level higher than threshold. 
+        Includes event description & timestamp. Also returns the total amount of logs analyzed 
+        and total amount of events with security level higher than threshold.
     '''
     scroll_count = 0
     read_big_data = {}
@@ -37,7 +37,7 @@ def get_logs(date):
                     sid = read_data['_scroll_id']
                     scroll_count += 1
                     command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET \
-                        "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll&scroll_id={sid}"'
+                    "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll&scroll_id={sid}"'
                     logdata = os.popen(command, 'r', 1)
                     read_data = logdata.read()
                     logdata.close()
@@ -73,10 +73,10 @@ def get_logs(date):
     logs_total = f"Analyzed {total_value} logs."
     meaningful_total = f"Found {count} records of meaningful log events."
 
-    return events, logs_total, meaningful_total
+    return [events, logs_total, meaningful_total]
 
 
 
 # Get logs for given date
-teste, testl, testm = get_logs('2023.03.14')
-print(teste, testl, testm)
+test = get_logs('2023.03.14')
+print(test)
