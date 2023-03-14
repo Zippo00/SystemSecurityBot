@@ -1,114 +1,80 @@
 import os
 import json
+import traceback
 from user_data import userdata
 
-date = '2023.02.25'
-command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll=1m'
-scroll_count = 0
-read_big_data = []
-try:
-    logdata = os.popen(command, 'r', 1)
-    read_data = logdata.read()
-    logdata.close()
-    read_big_data[scroll_count] = json.loads(read_data)
-    if read_data:
-        if int(read_data['hits']['total']['value']) == 10000:
-            while int(read_data['hits']['total']['value']) == 10000:
-                sid = read_data['_scroll_id']
-                scroll_count += 1
-                command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll&'
-                logdata = os.popen(command, 'r', 1)
-                read_data = logdata.read()
-                logdata.close()
-                read_data = json.loads(read_data)
-                read_big_data[scroll_count] = read_data
-                print("10 000 hits")
-except Exception:
-    read_data = {}
-#print(f'{read_data}')
 
-if 'error' in read_data.keys():
-    #print(read_data['error']['reason'])
-    print("No log data available for given date")
-else:
+def get_logs(date):
+    '''
+    Get wazuh logs for given date from elasticsearch API
+    :param date: (String) Date for which you want the logs for. Format: yyyy.mm.dd, for example "2023.03.14"
+    :return events: (list) List of recorded events with security level higher than threshold. Includes event description & timestamp
+    :return logs_total: (String) String that indicates how many logs were analyzed in total
+    :return meaningful_total: (String) String that indicates how many logs were analyzed with security level higher than theshold.
+    '''
+    scroll_count = 0
+    read_big_data = {}
+    events = []
     count = 0
-    if read_data:
-        for data in read_big_data:
-            for i in data["hits"]["hits"]:
-    #if int(i['_source']['data']['win']['system']['level']) >= userdata.LEVEL_THRESHOLD:
-    #    print(f"log event description: {i['_source']['rule']['description']}")
-    #    print(f"log event timestamp: {i['_source']['timestamp']}\n")
-                if int(i['_source']['rule']['level']) >= userdata.LEVEL_THRESHOLD:
-                    count += 1
-                    print(f"log event description: {i['_source']['rule']['description']}")
-                    print(f"log event timestamp: {i['_source']['timestamp']}\n")
-            print(f'Count: {count}')
+    total_value = 0
+    # Get log entries for given date through API &
+    # save them into a dictionary
+    command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET \
+    "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll=1m"'
+    try:
+        logdata = os.popen(command, 'r', 1)
+        read_data = logdata.read()
+        logdata.close()
+        read_data = json.loads(read_data)
+        read_big_data[str(scroll_count)] = read_data
+        if read_data:
+            total_value = read_data['hits']['total']['value']
+            if int(read_data['hits']['total']['value']) == 10000:
+                # If more than 10 000 log entries for given date,
+                # make more API calls to get more
+                while int(read_data['hits']['total']['value']) == 10000:
+                    sid = read_data['_scroll_id']
+                    scroll_count += 1
+                    command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET \
+                        "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll&scroll_id={sid}"'
+                    logdata = os.popen(command, 'r', 1)
+                    read_data = logdata.read()
+                    logdata.close()
+                    read_data = json.loads(read_data)
+                    read_big_data[str(scroll_count)] = read_data
+                    print("10 000 hits")
+    except Exception:
+        traceback.print_exc()
+        read_data = {}
+    # If no log entries were recorded for given date
+    if 'error' in read_data.keys():
+    #print(read_data['error']['reason'])
+        print("No log data available for given date")
+
+    else:
+        if read_data:
+            # Go through the log entries
+            for key in read_big_data:
+                for i in read_big_data[key]["hits"]["hits"]:
+                    # If security level >= threshold, 
+                    # append even description & timestamp into events list.
+                    if int(i['_source']['rule']['level']) >= userdata.LEVEL_THRESHOLD:
+                        count += 1
+                        events.append(f"LOG EVENT: Description: {i['_source']['rule']['description']},\
+                        Level: {i['_source']['rule']['level']}, \
+                        Timestamp: {i['_source']['timestamp']}\n")
+            if not events:
+                events.append("No notable events recorded on given date. System is secure.")
+
         else:
-            print("No log data available for given date")
+            events.append("No log data available for given date")
+        logs_total = f"Analyzed {total_value} logs."
+        meaningful_total = f"Found {count} records of meaningful log events."
+
+        return events, logs_total, meaningful_total
 
 
 
-
-
-
-# Esimerkki i in read_data["hits"]["hits"] formaatista:
-esimerkki_i = {
-'_index': 'wazuh-alerts-4.x-2023.02.25', 
-'_type': '_doc', '_id': 'Q0GdiIYBpwzpl5TUH_1d', 
-'_score': 1.0, 
-'_source': {
-    'agent': {'ip': '192.168.1.123', 'name': 'DESKTOP-GV0CDGM', 'id': '001'}, 
-    'manager': {'name': '172-104-138-12.ip.linodeusercontent.com'}, 
-    'data': {
-        'win': {
-            'eventdata': {
-                'subjectLogonId': '0x3e7', 
-                'targetUserName': 'arttu', 
-                'subjectUserSid': 'S-1-5-18', 
-                'subjectDomainName': 'WORKGROUP', 
-                'displayName': 'Arttu Juntunen', 
-                'targetDomainName': 'DESKTOP-GV0CDGM', 
-                'targetSid': 'S-1-5-21-526947645-2063055373-3576901729-1001', 
-                'subjectUserName': 'DESKTOP-GV0CDGM$'
-                }, 
-
-            'system': {
-                    'eventID': '4738', 
-                    'keywords': '0x8020000000000000', 
-                    'providerGuid': '{54849625-5478-4994-a5ba-3e3b0328c30d}', 
-                    'level': '0', 
-                    'channel': 'Security', 
-                    'opcode': '0', 
-                    'message': '"KÃ¤yttÃ¤jÃ¤tiliÃ¤ muutettiin.\r\n\r\nAihe:\r\n\tSuojaustunnus:\t\tS-1-5-18\r\n\tTilin nimi:\t\tDESKTOP-GV0CDGM$\r\n\tTilin toimialue:\t\tWORKGROUP\r\n\tKirjautumistunnus:\t\t0x3E7\r\n\r\nKohdetili:\r\n\tSuojaustunnus:\t\tS-1-5-21-526947645-2063055373-3576901729-1001\r\n\tTilin nimi:\t\tarttu\r\n\tTilin toimialue:\t\tDESKTOP-GV0CDGM\r\n\r\nMuutetut mÃ¤Ã¤ritteet:\r\n\tSAM-tilin nimi:\t-\r\n\tNÃ¤yttÃ¶nimi:\t\tArttu Juntunen\r\n\tKÃ¤yttÃ¤jÃ¤n tÃ¤ydellinen nimi:\t-\r\n\tKotikansio:\t\t-\r\n\tKotiasema:\t\t-\r\n\tKomentosarjan polku:\t\t-\r\n\tProfiilin polku:\t\t-\r\n\tKÃ¤yttÃ¤jÃ¤n tyÃ¶asemat:\t-\r\n\tSalasanan edellinen asetus:\t-\r\n\tTilin vanhentuminen:\t\t-\r\n\tEnsisijaisen ryhmÃ¤n tunnus:\t-\r\n\tSallittu delegoinnin kohde:\t-\r\n\tVanha kÃ¤yttÃ¤jÃ¤tilin valvonnan arvo:\t\t-\r\n\tUusi kÃ¤yttÃ¤jÃ¤tilin valvonnan arvo:\t\t-\r\n\tKÃ¤yttÃ¤jÃ¤tilien valvonta:\t-\r\n\tKÃ¤yttÃ¤jÃ¤n parametrit:\t-\r\n\tSID-historia:\t\t-\r\n\tKirjautumisajat:\t\t-\r\n\r\nLisÃ¤tiedot:\r\n\tOikeudet:\t\t-"',
-                     'version': '0', 
-                     'systemTime': '2023-02-25T12:47:03.5307898Z', 
-                     'eventRecordID': '910413', 
-                     'threadID': '22972', 
-                     'computer': 'DESKTOP-GV0CDGM', 
-                     'task': '13824', 
-                     'processID': '1300', 
-                     'severityValue': 'AUDIT_SUCCESS', 
-                     'providerName': 'Microsoft-Windows-Security-Auditing'
-                     }}}, 
-                     'rule': {
-                        'mail': False, 
-                        'level': 8, 
-                        'hipaa': ['164.312.a.2.I', '164.312.a.2.II', '164.312.b'],
-                        'pci_dss': ['10.2.5', '8.1.2'],
-                        'tsc': ['CC6.8', 'CC7.2', 'CC7.3'],
-                        'description': 'User account changed.',
-                        'groups': ['windows', 'windows_security', 'account_changed'], 
-                        'nist_800_53': ['AC.2', 'AC.7', 'AU.14', 'IA.4'], 
-                        'gdpr': ['IV_32.2', 'IV_35.7.d'], 
-                        'firedtimes': 2, 
-                        'mitre': {'technique': ['Account Manipulation'], 'id': ['T1098'], 'tactic': ['Persistence']}, 
-                        'id': '60110', 
-                        'gpg13': ['7.10']
-                        }, 
-                        'decoder': {'name': 'windows_eventchannel'}, 
-                        'input': {'type': 'log'}, 
-                        '@timestamp': '2023-02-25T12:47:18.879Z', 
-                        'location': 'EventChannel', 
-                        'id': '1677329238.3885', 
-                        'timestamp': '2023-02-25T12:47:18.879+0000'
-                        }}
+# Get logs for given date
+teste, testl, testm = get_logs('2023.03.14')
+print(teste, testl, testm)
