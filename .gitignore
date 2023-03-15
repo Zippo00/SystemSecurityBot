@@ -4,3 +4,5 @@ tempCodeRunnerFile.python
 testfile.py
 **memory/*.txt
 **memory/*.log
+.vscode
+__pycache__
