@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+from datetime import datetime
 from user_data import userdata
 
 
@@ -13,6 +14,12 @@ def get_logs(date):
         Includes event description & timestamp. Also returns the total amount of logs analyzed 
         and total amount of events with security level higher than threshold.
     '''
+    format = "%Y.%m.%d"
+    datecheck = True
+    try:
+        datecheck = bool(datetime.strptime(date, format))
+    except ValueError:
+        return ["THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: User's given date is not in correct format. Use 'yyyy.mm.dd'"]
     scroll_count = 0
     read_big_data = {}
     events = []
@@ -51,7 +58,8 @@ def get_logs(date):
     # If no log entries were recorded for given date
     if 'error' in read_data.keys():
     #print(read_data['error']['reason'])
-        events.append("No log events recorded for the given date.")
+        events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: No log events recorded for the given date.")
+        return
 
     else:
         if read_data:
@@ -62,11 +70,11 @@ def get_logs(date):
                     # append event description & timestamp into events list.
                     if int(i['_source']['rule']['level']) >= userdata.LEVEL_THRESHOLD:
                         count += 1
-                        events.append(f"LOG EVENT: Description: {i['_source']['rule']['description']},\
-                        Level: {i['_source']['rule']['level']}, \
-                        Timestamp: {i['_source']['timestamp']}\n")
+                        if not events:
+                            events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS: ")
+                        events.append(f"\nLOG EVENT: Description: {i['_source']['rule']['description']}, Level: {i['_source']['rule']['level']}, Timestamp: {i['_source']['timestamp']}\n")
             if not events:
-                events.append("No notable events recorded on given date. System is secure.")
+                events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: No notable events recorded on given date. System is secure.")
 
         else:
             events.append("No log data available for given date")
@@ -78,5 +86,6 @@ def get_logs(date):
 
 
 # Get logs for given date
-test = get_logs('2023.03.14')
-print(test)
+if __name__ == '__main__':
+    test = get_logs('2023.03.14')
+    print(test)
