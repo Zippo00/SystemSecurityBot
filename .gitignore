@@ -6,3 +6,7 @@ testfile.py
 **memory/*.log
 .vscode
 __pycache__
+user_data/userdata.py
+user_data/*
+user_data
+
