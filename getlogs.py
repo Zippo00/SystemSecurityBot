@@ -27,8 +27,7 @@ def get_logs(date):
     total_value = 0
     # Get log entries for given date through API &
     # save them into a dictionary
-    command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET \
-    "{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll=1m"'
+    command = f'curl -k -u {userdata.WAZUH_ACC}:{userdata.WAZUH_PASS} -X GET "https://{userdata.WAZUH_IP}{userdata.WAZUH_PORT}/wazuh-alerts-4.x-{date}/_search?pretty&size=10000&scroll=1m"'
     try:
         logdata = os.popen(command, 'r', 1)
         read_data = logdata.read()
