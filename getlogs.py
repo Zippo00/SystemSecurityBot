@@ -19,7 +19,7 @@ def get_logs(date):
     try:
         datecheck = bool(datetime.strptime(date, format))
     except ValueError:
-        return ["THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: User's given date is not in correct format. Use 'yyyy.mm.dd'"]
+        return ["THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: User's given date is not in correct format. They need to give the date as 'yyyy.mm.dd'"]
     scroll_count = 0
     read_big_data = {}
     events = []
@@ -59,7 +59,7 @@ def get_logs(date):
     if 'error' in read_data.keys():
     #print(read_data['error']['reason'])
         events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: No log events recorded for the given date.")
-        return
+        return events
 
     else:
         if read_data:
@@ -71,8 +71,9 @@ def get_logs(date):
                     if int(i['_source']['rule']['level']) >= userdata.LEVEL_THRESHOLD:
                         count += 1
                         if not events:
-                            events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS: ")
-                        events.append(f"\nLOG EVENT: Description: {i['_source']['rule']['description']}, Level: {i['_source']['rule']['level']}, Timestamp: {i['_source']['timestamp']}\n")
+                            events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: ")
+                        #events.append(f"\nLOG EVENT: Device information: [IP: {i['_source']['agent']['ip']}, Agent name: {i['_source']['agent']['name']}], Description: {i['_source']['rule']['description']}, Level: {i['_source']['rule']['level']}, Timestamp: {i['_source']['timestamp']}\n")
+                        events.append(scan_log(i))
             if not events:
                 events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: No notable events recorded on given date. System is secure.")
 
@@ -80,12 +81,57 @@ def get_logs(date):
             events.append("No log data available for given date")
     logs_total = f"Analyzed {total_value} logs."
     meaningful_total = f"Found {count} records of meaningful log events."
+    events.append(logs_total)
+    events.append(meaningful_total)
+    return events
 
-    return [events, logs_total, meaningful_total]
+def scan_log(log):
+    '''
+    Extract certain information from a log given as input.
+
+    :param log: (string) A log returned by ElasticSearch API.
+    :return: (string) Compacted information from the given log.
+    '''
+    log_event = 'LOG EVENT: '
+    device_info = 'Device information: {'
+    try:
+        # Get device IP, if possible
+        device_ip = f"IP: {log['_source']['agent']['ip']}, "
+        device_info += device_ip
+    except KeyError:
+        pass
+    try:
+        # Get agent name, if possible
+        device_agent = f"Wazuh agent name: {log['_source']['agent']['name']}"
+        device_info += device_agent
+    except KeyError:
+        pass
+    device_info += "}, "
+    log_event += device_info
+    try:
+        # Get event description, if possible
+        log_description = "Description: {" + f"{log['_source']['rule']['description']}" + "}, "
+        log_event += log_description
+    except KeyError:
+        pass
+    try:
+        # Get security level, if possible
+        event_level = "Level: {" + f"{log['_source']['rule']['level']}" + "}, "
+        log_event += event_level
+    except KeyError:
+        pass
+    try:
+        # Get event timestamp, if possible
+        log_timestamp = "Timestamp: {" f"{log['_source']['timestamp']}" + "}"
+        log_event += log_timestamp
+    except KeyError:
+        pass
+    log_event += "\n"
+    return log_event
 
 
 
 # Get logs for given date
 if __name__ == '__main__':
-    test = get_logs('2023.03.14')
+    test = get_logs('2023.03.16')
     print(test)
