@@ -19,7 +19,7 @@ def get_logs(date):
     try:
         datecheck = bool(datetime.strptime(date, format))
     except ValueError:
-        return ["THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: User's given date is not in correct format. They need to give the date as 'yyyy.mm.dd'"]
+        return ["LOG DATA: User's given date is not in correct format. They need to give the date as 'yyyy.mm.dd'"]
     scroll_count = 0
     read_big_data = {}
     events = []
@@ -58,7 +58,7 @@ def get_logs(date):
     # If no log entries were recorded for given date
     if 'error' in read_data.keys():
     #print(read_data['error']['reason'])
-        events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: No log events recorded for the given date.")
+        events.append("LOG DATA: No log events recorded for the given date.")
         return events
 
     else:
@@ -71,11 +71,11 @@ def get_logs(date):
                     if int(i['_source']['rule']['level']) >= userdata.LEVEL_THRESHOLD:
                         count += 1
                         if not events:
-                            events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: ")
+                            events.append("LOG DATA: ")
                         #events.append(f"\nLOG EVENT: Device information: [IP: {i['_source']['agent']['ip']}, Agent name: {i['_source']['agent']['name']}], Description: {i['_source']['rule']['description']}, Level: {i['_source']['rule']['level']}, Timestamp: {i['_source']['timestamp']}\n")
                         events.append(scan_log(i))
             if not events:
-                events.append("THIS IS WHAT HAPPENED IN USER'S SYSTEM LOGS WHEN YOU ANALYZED THE LOGS: No notable events recorded on given date. System is secure.")
+                events.append("LOG DATA: No notable events recorded on given date. System is secure.")
 
         else:
             events.append("No log data available for given date")
@@ -92,7 +92,7 @@ def scan_log(log):
     :param log: (string) A log returned by ElasticSearch API.
     :return: (string) Compacted information from the given log.
     '''
-    log_event = 'LOG EVENT: '
+    log_event = '{LOG EVENT: '
     device_info = 'Device information: {'
     try:
         # Get device IP, if possible
@@ -126,7 +126,7 @@ def scan_log(log):
         log_event += log_timestamp
     except KeyError:
         pass
-    log_event += "\n"
+    log_event += "}\n"
     return log_event
 
 

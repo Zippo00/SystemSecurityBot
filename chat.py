@@ -1,6 +1,7 @@
 import openai
 import json
 import getlogs
+import traceback
 from datetime import datetime
 
 
@@ -15,15 +16,25 @@ keywords = ["", "", ""]
 
 
 def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.6, top_p=1.0, max_tokens=800, freq_pen=0.7, pres_pen=0.0, stop=['"role": "assistant", "content": " "', 'user:', 'User:', 'USER:']):
-    response = openai.ChatCompletion.create(
-        model=model,
-        messages=prompt,
-        temperature=temp,
-        max_tokens=max_tokens,
-        top_p=top_p,
-        frequency_penalty=freq_pen,
-        presence_penalty=pres_pen,
-        stop=stop)
+    try:
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=prompt,
+            temperature=temp,
+            max_tokens=max_tokens,
+            top_p=top_p,
+            frequency_penalty=freq_pen,
+            presence_penalty=pres_pen,
+            stop=stop)
+    except openai.error.InvalidRequestError:
+        # Most likely token limit exceeded.
+        for item in range(int(len(prompt)/2)):
+            prompt.pop(2)
+        text, tokens_total = gpt35t_completion(prompt)
+        return text, tokens_total
+    except Exception:
+        traceback.print_exc()
+        return "Exception occured", 0
     text = response['choices'][0]['message']['content'].strip()
     tokens_total = response['usage']['total_tokens']
     return text, tokens_total
@@ -86,23 +97,24 @@ def reformat_date(date, curr_format):
 
 if __name__ == '__main__':
     # ChatAI System Message
-    conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs. If user prompts you with a date in format yyyy.mm.dd or dd.mm.yyyy, you get the user's logs for given date(s) at the end of the prompt. Log data begins in format LOG EVENT:"}]
+    conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs. If user prompts you with a date in format yyyy.mm.dd or dd.mm.yyyy, you get the user's logs for given date(s) at the end of the prompt. Log data begins with LOG EVENT:"}]
     LOG_FLAG = False
     tokens = 0
     while True:
-        # Ask user for prompt
+        dates = []
         # If Conversation starts to near max tokens (4096), remove older half of convo from memory.
         if tokens > 3000:
             for i in range(int(len(conversation)/2)):
                 conversation.pop(1)
             LOG_FLAG = True
+        # Ask user for prompt
         user_input = input('USER: ')
         # SCAN THE USER INPUT FOR KEYWORDS
         dates = dates_check(user_input)
         if dates:
             latest_logs = ""
             # If found dates in acceptable format in user's input
-            # Get meaningful system logs for given dates form ElasticSearch API
+            # Get meaningful system logs for given dates from ElasticSearch API
             meaningful_logs = ["\n\n"]
             for i in dates:
                 get_logs = getlogs.get_logs(i)
@@ -121,10 +133,14 @@ if __name__ == '__main__':
         conversation.append('{' + f'"role": "user", "content": "{user_input}"' + '}')
         conversation[-1] = json.loads(conversation[-1], strict=False)
         # Append a stop signal for AI to the end of convo.
-        conversation.append('{' + '"role": "assistant", "content": " "' + '}')
+        conversation.append('{"role": "assistant", "content": " "}')
         conversation[-1] = json.loads(conversation[-1], strict=False)
         # Get response from AI
+
         response, tokens = gpt35t_completion(conversation)
+        if response == "Exception occured":
+            print("Something went wrong. Please try again later.")
+            exit()
         # Print the AI's response
         print('Alice:', response)
         #print(f'Total tokens used: {tokens}')
