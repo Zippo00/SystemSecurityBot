@@ -37,16 +37,18 @@ def dates_check(input_to_scan):
     :param input: (string) String to be scanned for dates.
     :return: (list) List of found dates in proper format. If none found, returns an empty list.
     '''
+    if not isinstance(input_to_scan, str):
+        raise ValueError("input_to_scan parameter needs to be a string")
     datecheck = True
     formatted_dates = []
     # Date formats that will be scanned for
     formats = ["%Y.%m.%d", "%d.%m.%Y", "%Y.%m.%d.", "%d.%m.%Y.", "%Y.%m.%d,", "%d.%m.%Y,", "%Y.%m.%d!", "%d.%m.%Y!", "%Y.%m.%d?", "%d.%m.%Y?"]
     words = input_to_scan.split()
-    for i in words:
-        for j in formats:
+    for word in words:
+        for dateformat in formats:
             try:
-                datecheck = bool(datetime.strptime(i, j))
-                formatted_date = reformat_date(i, j)
+                datecheck = bool(datetime.strptime(word, dateformat))
+                formatted_date = reformat_date(word, dateformat)
                 formatted_dates.append(formatted_date)
 
             except ValueError:
@@ -65,6 +67,10 @@ def reformat_date(date, curr_format):
     :return: (string) Given date in proper format.
 
      '''
+    if not isinstance(date, str):
+        raise ValueError("date parameter needs to be a string.")
+    if not isinstance(curr_format, str):
+        raise ValueError("curr_format parameter needs to be a string")
     # Take a date formated in an acceptable way and turn it into yyyy.dd.mm
     ready_formats = ["%Y.%m.%d", "%Y.%m.%d.", "%Y.%m.%d,", "%Y.%m.%d!", "%Y.%m.%d?"]
     modify_formats = ["%d.%m.%Y", "%d.%m.%Y.", "%d.%m.%Y,", "%d.%m.%Y!", "%d.%m.%Y?"]
@@ -81,22 +87,36 @@ def reformat_date(date, curr_format):
 if __name__ == '__main__':
     # ChatAI System Message
     conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs. If user prompts you with a date in format yyyy.mm.dd or dd.mm.yyyy, you get the user's logs for given date(s) at the end of the prompt. Log data begins in format LOG EVENT:"}]
+    LOG_FLAG = False
+    tokens = 0
     while True:
         # Ask user for prompt
+        # If Conversation starts to near max tokens (4096), remove older half of convo from memory.
+        if tokens > 3000:
+            for i in range(int(len(conversation)/2)):
+                conversation.pop(1)
+            LOG_FLAG = True
         user_input = input('USER: ')
         # SCAN THE USER INPUT FOR KEYWORDS
         dates = dates_check(user_input)
         if dates:
+            latest_logs = ""
             # If found dates in acceptable format in user's input
             # Get meaningful system logs for given dates form ElasticSearch API
             meaningful_logs = ["\n\n"]
             for i in dates:
-                logs = getlogs.get_logs(i)
-                meaningful_logs = meaningful_logs + logs
+                get_logs = getlogs.get_logs(i)
+                meaningful_logs = meaningful_logs + get_logs
             for index, logs in enumerate(meaningful_logs):
                 for j in logs:
+                    latest_logs += j
                     user_input += j
         #print(f"\nUser input before appending to convo: {user_input}")
+        # Make sure latest analyzed logs stay in memory
+        if LOG_FLAG:
+            LOG_FLAG = False
+            if "LOG EVENT:" not in conversation and "LOG_EVENT:" not in user_input:
+                conversation.insert(1, latest_logs)
         # Append the user prompt into conversation.
         conversation.append('{' + f'"role": "user", "content": "{user_input}"' + '}')
         conversation[-1] = json.loads(conversation[-1], strict=False)
@@ -105,18 +125,9 @@ if __name__ == '__main__':
         conversation[-1] = json.loads(conversation[-1], strict=False)
         # Get response from AI
         response, tokens = gpt35t_completion(conversation)
+        # Print the AI's response
         print('Alice:', response)
         #print(f'Total tokens used: {tokens}')
         # Append the AI's response into convo.
         conversation[-1] = '{' + f'"role": "assistant", "content": "{response}"' + '}'
         conversation[-1] = json.loads(conversation[-1], strict=False)
-        # If Conversation starts to near max tokens (4096), remove older half of convo from memory.
-        if tokens > 3000:
-            for i in range(int(len(conversation)/2)):
-                conversation.pop(1)
-
-
-
-
-
-'{"role": assistant, "content": As a cyber security assistant, I can help you with various tasks related to cyber security. For example, I can:\n\n1. Provide general information about cyber security and best practices.\n2. Help you identify potential vulnerabilities in your system.\n3. Assist you in configuring and securing your network.\n4. Analyze system logs to detect any suspicious activities or potential threats.\n5. Offer guidance on how to respond to a security incident or breach.\n\nLet me know if there is anything specific you need help with!'
