@@ -7,3 +7,5 @@ testfile.py
 .vscode
 __pycache__
 user_data/userdata.py
+user_data/*
+user_data
