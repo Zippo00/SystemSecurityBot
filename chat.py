@@ -1,10 +1,10 @@
 import openai
 import json
 import ast
-import getlogs
+import wazuhfunctions
 import traceback
 from datetime import datetime
-
+import ipaddress
 
 def open_file(filepath):
     with open(filepath, 'r', encoding='utf-8') as infile:
@@ -13,10 +13,10 @@ def open_file(filepath):
 
 openai.api_key = open_file('openaiapikey_acp1.txt')
 
-keywords = ["", "", ""]
 
 
-def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.6, top_p=1.0, max_tokens=800, freq_pen=0.7, pres_pen=0.0, stop=['"role": "assistant", "content": " "', 'user:', 'User:', 'USER:']):
+
+def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.4, top_p=1.0, max_tokens=1000, freq_pen=0.7, pres_pen=0.0, stop=['"role": "assistant", "content": " "', 'user:', 'User:', 'USER:']):
     try:
         response = openai.ChatCompletion.create(
             model=model,
@@ -54,7 +54,7 @@ def dates_check(input_to_scan):
     datecheck = True
     formatted_dates = []
     # Date formats that will be scanned for
-    formats = ["%Y.%m.%d", "%d.%m.%Y", "%Y.%m.%d.", "%d.%m.%Y.", "%Y.%m.%d,", "%d.%m.%Y,", "%Y.%m.%d!", "%d.%m.%Y!", "%Y.%m.%d?", "%d.%m.%Y?"]
+    formats = ["%Y.%m.%d", "%d.%m.%Y", "%Y.%m.%d.", "%d.%m.%Y.", "%Y.%m.%d,", "%d.%m.%Y,", "%Y.%m.%d!", "%d.%m.%Y!", "%Y.%m.%d?", "%d.%m.%Y?", "%d.%m", "%d.%m.", "%d.%m,", "%d.%m!", "%d.%m?", "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"]
     words = input_to_scan.split()
     for word in words:
         for dateformat in formats:
@@ -86,6 +86,7 @@ def reformat_date(date, curr_format):
     # Take a date formated in an acceptable way and turn it into yyyy.dd.mm
     ready_formats = ["%Y.%m.%d", "%Y.%m.%d.", "%Y.%m.%d,", "%Y.%m.%d!", "%Y.%m.%d?"]
     modify_formats = ["%d.%m.%Y", "%d.%m.%Y.", "%d.%m.%Y,", "%d.%m.%Y!", "%d.%m.%Y?"]
+    short_formats = ["%d.%m", "%d.%m.", "%d.%m,", "%d.%m!", "%d.%m?", "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"]
     punctuations = [".", ",", "?", "!"]
     while date[-1] in punctuations:
         date = date[:-1]
@@ -93,16 +94,80 @@ def reformat_date(date, curr_format):
         return date
     if curr_format in modify_formats:
         date = datetime.strptime(date, '%d.%m.%Y').strftime('%Y.%m.%d')
-        return date
+    if curr_format in short_formats:
+        current_year = str(datetime.now().year)
+        date = date + "." + current_year
+        date = datetime.strptime(date, '%d.%m.%Y').strftime('%Y.%m.%d')
+    return date
+
+def active_response_scan(input_to_scan):
+    '''
+    Scans the given input for keywords related to executing an active response.
+    
+    :param input_to_scan: (string) String to be scanned for keywords
+    :return: (list) List of active responses to execute.
+    '''
+    executed_responses = []
+    message_for_AI = []
+    if not isinstance(input_to_scan, str):
+        raise ValueError("input_to_scan parameter needs to be a string")
+    punctuations = [".", ",", "?", "!"]
+    ip_keywords = ["block", "block ip", "block the ip", "block address", "block the address", "blck ip", "blck the ip", "blck address", "blck the address", "block addrss", "block adress", "block addres", "blck addres", "blck adress", "blck addrs", "block pi", "block the pi"]
+    restart_keywords = ["restart wazuh agent", "restrat wazuh agent", "restart wazh agent", "restart agent", "restrat agent", "restart agnt", "restrat agnt", "restart aent", "restrat aent", "restart agen", "restrat agen"]
+    input_to_scan = input_to_scan.lower()
+    # Scan the input for Block IP keywords
+    for keyword in ip_keywords:
+        if keyword in input_to_scan:
+            # If found scan the input for IP address
+            words = input_to_scan.split()
+            for word in words:
+                try:
+                    ipaddress.ip_address(word)
+                    # If found, run block IP API command and append the response into list
+                    executed_responses.append(wazuhfunctions.ar_block_ip(word))
+                except Exception:
+                    continue
+    for response in executed_responses:
+        if "was sent" in response:
+            message_for_AI.append("***YOU, ALICE, SUCCESFULLY BLOCKED THE IP ADDRESS ON ALL DEVICES CONNECTED TO USER'S WAZUH MANAGER***")
+    # Scan the input for Agent Restart keywords
+    for keyword in restart_keywords:
+        if keyword in input_to_scan:
+            # If found split the input into words and find the word "agent" or misspelled
+            # equivalent.
+            words = input_to_scan.split()
+
+            for index, word in enumerate(words):
+                while word[-1] in punctuations:
+                    word = word[:-1]
+                if word in ("agent", "agnt", "aent", "agen", "id", "agentid", "agntid"):
+                    # When "id", "agent" or misspelled equivalent is found, make the educated
+                    # guess that either next word or the word after the next is the ID number.
+                    try:
+                        if words[index + 1].isnumeric():
+                            executed_responses.append(wazuhfunctions.ar_restart_agent(words[index + 1]))
+                    except IndexError:
+                        pass
+                    try:
+                        if words[index + 2].isnumeric():
+                            executed_responses.append(wazuhfunctions.ar_restart_agent(words[index + 1]))
+                    except IndexError:
+                        pass
+    for response in executed_responses:
+        if "Restart command was sent" in executed_responses:
+            message_for_AI.append("***YOU, ALICE, SUCCESFULLY RESTARTED THE AGENT THROUGH WAZUH API***")
+    return message_for_AI
 
 
+            
 if __name__ == '__main__':
     # ChatAI System Message
-    conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs generated by Wazuh. If user prompts you with a date in format yyyy.mm.dd or dd.mm.yyyy, you get the user's logs for given date(s) at the end of the prompt. Log data begins with LOG EVENT:"}]
+    conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs generated by Wazuh, block IP addresses and restart Wazuh agents. If user message includes 'Block IP command was sent to all agents', you have succesfully blocked the IP address. If user message includes 'Restart command was sent to agent 002', you have succesfully restarted the agent. If user prompts you with a date in format yyyy.mm.dd, dd.mm.yyyy or dd.mm, you get the user's logs for given date(s) at the end of the prompt. Log data is in format ***LOG DATA: ****"}]
     LOG_FLAG = False
     tokens = 0
     while True:
         dates = []
+        active_responses = []
         # If Conversation starts to near max tokens (4096), remove older half of convo from memory.
         if tokens > 3000:
             for i in range(int(len(conversation)/2)):
@@ -110,7 +175,7 @@ if __name__ == '__main__':
             LOG_FLAG = True
         # Ask user for prompt
         user_input = input('USER: ')
-        # SCAN THE USER INPUT FOR KEYWORDS
+        # Scan the user input for dates in formats dd.mm.yyy, yyyy.mm.dd, or dd.mm
         dates = dates_check(user_input)
         if dates:
             latest_logs = ""
@@ -118,26 +183,30 @@ if __name__ == '__main__':
             # Get meaningful system logs for given dates from ElasticSearch API
             meaningful_logs = ["\n\n"]
             for i in dates:
-                get_logs = getlogs.get_logs(i)
+                get_logs = wazuhfunctions.get_logs(i)
                 meaningful_logs = meaningful_logs + get_logs
             for index, logs in enumerate(meaningful_logs):
                 for j in logs:
                     latest_logs += j
                     user_input += j
+        # Scan the user input for keywords associated with active response commands and execute them if found.
+        active_responses = active_response_scan(user_input)
+        if active_responses:
+            for response in active_responses:
+                user_input += response
         #print(f"\nUser input before appending to convo: {user_input}")
         # Make sure latest analyzed logs stay in memory
         if LOG_FLAG:
             LOG_FLAG = False
             if "LOG EVENT:" not in conversation and "LOG_EVENT:" not in user_input:
-                conversation.insert(1, latest_logs)
+                conversation.insert(1, '''{''' + f''''role': 'user', 'content': '{latest_logs}' ''' + '}')
         # Append the user prompt into conversation.
-        conversation.append('{' + f'"role": "user", "content": "{user_input}"' + '}')
+        conversation.append('''{''' + f''''role': 'user', 'content': '{user_input.replace("'", '"')}' ''' + '}')
         conversation[-1] = ast.literal_eval(conversation[-1].replace('\r','\\r').replace('\n','\\n'))
         # Append a stop signal for AI to the end of convo.
         conversation.append('{"role": "assistant", "content": " "}')
         conversation[-1] = ast.literal_eval(conversation[-1].replace('\r','\\r').replace('\n','\\n'))
         # Get response from AI
-
         response, tokens = gpt35t_completion(conversation)
         if response == "Exception occured":
             print("Something went wrong. Please try again later.")
@@ -146,6 +215,5 @@ if __name__ == '__main__':
         print('Alice:', response)
         #print(f'Total tokens used: {tokens}')
         # Append the AI's response into convo.
-        conversation[-1] = '{' + f'"role": "assistant", "content": "{response}"' + '}'
+        conversation[-1] = '''{''' + f''''role': 'assistant', 'content': '{response.replace("'", '"')}' ''' + '}'
         conversation[-1] = ast.literal_eval(conversation[-1].replace('\r','\\r').replace('\n','\\n'))
-
