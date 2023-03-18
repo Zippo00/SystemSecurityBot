@@ -1,3 +1,6 @@
+'''
+Functions for remote use of Wazuh.
+'''
 import os
 import json
 import traceback
@@ -183,6 +186,7 @@ def ar_block_ip(IP_address):
             response_message += server_response2["message"]
     except Exception:
         response_message += " API Command to block IP address on Linux devices failed."
+    #TODO: ADD COMMAND FOR MAC DEVICES*****************************************************************************************************
     response_message = response_message.replace("AR", "Block IP")
     return response_message
 
@@ -234,6 +238,7 @@ def ar_restart_agent(agent_id):
     except Exception:
         response_message += "API Command to restart Wazuh agent on Linux device failed."
 
+    #TODO: ADD COMMAND FOR MAC DEVICES*****************************************************************************************************
     response_message = response_message.replace("AR", "Restart")
     return response_message
 

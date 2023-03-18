@@ -53,6 +53,9 @@ def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.4, top_p=1.0, max_to
             stop=stop)
     except openai.error.InvalidRequestError:
         # Most likely token limit exceeded.
+        if len(prompt) < 3:
+            # TODO: Cut logs off if they exceed 4000 tokens. *********************************************************************************************************
+            pass
         for item in range(int(len(prompt)/2)):
             prompt.pop(2)
         text, tokens_total = gpt35t_completion(prompt)
@@ -78,7 +81,11 @@ def dates_check(input_to_scan):
     datecheck = True
     formatted_dates = []
     # Date formats that will be scanned for
-    formats = ["%Y.%m.%d", "%d.%m.%Y", "%Y.%m.%d.", "%d.%m.%Y.", "%Y.%m.%d,", "%d.%m.%Y,", "%Y.%m.%d!", "%d.%m.%Y!", "%Y.%m.%d?", "%d.%m.%Y?", "%d.%m", "%d.%m.", "%d.%m,", "%d.%m!", "%d.%m?", "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"]
+    formats = [
+                "%Y.%m.%d", "%d.%m.%Y", "%Y.%m.%d.", "%d.%m.%Y.", "%Y.%m.%d,", "%d.%m.%Y,",
+                "%Y.%m.%d!", "%d.%m.%Y!", "%Y.%m.%d?", "%d.%m.%Y?", "%d.%m", "%d.%m.", 
+                "%d.%m,", "%d.%m!", "%d.%m?", "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"
+                ]
     words = input_to_scan.split()
     for word in words:
         for dateformat in formats:
@@ -110,7 +117,10 @@ def reformat_date(date, curr_format):
     # Take a date formated in an acceptable way and turn it into yyyy.dd.mm
     ready_formats = ["%Y.%m.%d", "%Y.%m.%d.", "%Y.%m.%d,", "%Y.%m.%d!", "%Y.%m.%d?"]
     modify_formats = ["%d.%m.%Y", "%d.%m.%Y.", "%d.%m.%Y,", "%d.%m.%Y!", "%d.%m.%Y?"]
-    short_formats = ["%d.%m", "%d.%m.", "%d.%m,", "%d.%m!", "%d.%m?", "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"]
+    short_formats = [
+                    "%d.%m", "%d.%m.", "%d.%m,", "%d.%m!", "%d.%m?", 
+                    "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"
+                    ]
     punctuations = [".", ",", "?", "!"]
     while date[-1] in punctuations:
         date = date[:-1]
@@ -136,8 +146,12 @@ def active_response_scan(input_to_scan):
     if not isinstance(input_to_scan, str):
         raise ValueError("input_to_scan parameter needs to be a string")
     punctuations = [".", ",", "?", "!"]
-    ip_keywords = ["block", "block ip", "block the ip", "block address", "block the address", "blck ip", "blck the ip", "blck address", "blck the address", "block addrss", "block adress", "block addres", "blck addres", "blck adress", "blck addrs", "block pi", "block the pi"]
-    restart_keywords = ["restart wazuh agent", "restrat wazuh agent", "restart wazh agent", "restart agent", "restrat agent", "restart agnt", "restrat agnt", "restart aent", "restrat aent", "restart agen", "restrat agen"]
+    ip_keywords = ["block", "block ip", "block the ip", "block address", "block the address",
+                    "blck ip", "blck the ip", "blck address", "blck the address", "block addrss", 
+                    "block adress", "block addres", "blck addres", "blck adress", "blck addrs", "block pi", "block the pi"]
+    restart_keywords = ["restart wazuh agent", "restrat wazuh agent", "restart wazh agent", 
+                        "restart agent", "restrat agent", "restart agnt", "restrat agnt", 
+                        "restart aent", "restrat aent", "restart agen", "restrat agen"]
     input_to_scan = input_to_scan.lower()
     # Scan the input for Block IP keywords
     for keyword in ip_keywords:
