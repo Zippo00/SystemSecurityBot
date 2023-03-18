@@ -121,7 +121,7 @@ def reformat_date(date, curr_format):
                     "%d.%m", "%d.%m.", "%d.%m,", "%d.%m!", "%d.%m?", 
                     "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"
                     ]
-    punctuations = [".", ",", "?", "!"]
+    punctuations = [".", ",", "?", "!", "-", "_", "'", '"', "=", "<", ">"]
     while date[-1] in punctuations:
         date = date[:-1]
     if curr_format in ready_formats:
@@ -143,15 +143,19 @@ def active_response_scan(input_to_scan):
     '''
     executed_responses = []
     message_for_AI = []
+    punctuations = [".", ",", "?", "!", "-", "_", "'", '"', "=", "<", ">"]
     if not isinstance(input_to_scan, str):
         raise ValueError("input_to_scan parameter needs to be a string")
-    punctuations = [".", ",", "?", "!"]
-    ip_keywords = ["block", "block ip", "block the ip", "block address", "block the address",
+    ip_keywords = [
+                    "block", "block ip", "block the ip", "block address", "block the address",
                     "blck ip", "blck the ip", "blck address", "blck the address", "block addrss", 
-                    "block adress", "block addres", "blck addres", "blck adress", "blck addrs", "block pi", "block the pi"]
-    restart_keywords = ["restart wazuh agent", "restrat wazuh agent", "restart wazh agent", 
+                    "block adress", "block addres", "blck addres", "blck adress", "blck addrs", "block pi", "block the pi"
+                    ]
+    restart_keywords = [
+                        "restart wazuh agent", "restrat wazuh agent", "restart wazh agent",
                         "restart agent", "restrat agent", "restart agnt", "restrat agnt", 
-                        "restart aent", "restrat aent", "restart agen", "restrat agen"]
+                        "restart aent", "restrat aent", "restart agen", "restrat agen"
+                        ]
     input_to_scan = input_to_scan.lower()
     # Scan the input for Block IP keywords
     for keyword in ip_keywords:
@@ -159,6 +163,10 @@ def active_response_scan(input_to_scan):
             # If found scan the input for IP address
             words = input_to_scan.split()
             for word in words:
+                while word[-1] in punctuations:
+                    word = word[:-1]
+                while word[0] in punctuations:
+                    word = word[1:]
                 try:
                     ipaddress.ip_address(word)
                     # If found, run block IP API command and append the response into list
@@ -178,6 +186,8 @@ def active_response_scan(input_to_scan):
             for index, word in enumerate(words):
                 while word[-1] in punctuations:
                     word = word[:-1]
+                while word[0] in punctuations:
+                    word = word[1:]
                 if word in ("agent", "agnt", "aent", "agen", "id", "agentid", "agntid"):
                     # When "id", "agent" or misspelled equivalent is found, make the educated
                     # guess that either next word or the word after the next is the ID number.
