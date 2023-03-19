@@ -154,7 +154,11 @@ def ar_block_ip(IP_address):
     '''
     if not isinstance(IP_address, str):
         return "Parameter IP_address must be a string."
+    FAILED_FLAG = False
     error_message = ""
+    error_message2 = ""
+    response_message = ""
+    response_message2 = ""
     # Get authentication token
     try:
         command = f'curl -u {userdata.AUTH_ACC}:{userdata.AUTH_PASS} -k -X GET "https://{userdata.WAZUH_IP}:55000/security/user/authenticate"'
@@ -176,17 +180,18 @@ def ar_block_ip(IP_address):
         #print(f"Windows server response: {server_response}")
         try:
             if server_response["data"]["failed_items"]:
+                FAILED_FLAG = True
                 for item in server_response["data"]["failed_items"]:
                     error_message = "\n" + item["error"]["message"] + f'. Agent ID: {item["id"]}.'
             try:
-                if server_response["data"]["affected_items"]:
+                if FAILED_FLAG and server_response["data"]["affected_items"]:
                     for item in server_response["data"]["affected_items"]:
                         error_message += f"\nBlock IP command was sent succesfully to agent with ID: {item}"
             except KeyError:
                 pass
         except KeyError:
             pass
-        
+        FAILED_FLAG = False
         response_message = server_response["message"]
         if error_message:
             response_message += error_message
@@ -205,10 +210,11 @@ def ar_block_ip(IP_address):
         #print(f"Linux server response: {server_response2}")
         try:
             if server_response2["data"]["failed_items"]:
+                FAILED_FLAG = True
                 for item in server_response2["data"]["failed_items"]:
                     error_message2 = "\n" + item["error"]["message"] + f'. Agent ID: {item["id"]}.'
             try:
-                if server_response2["data"]["affected_items"]:
+                if FAILED_FLAG and server_response2["data"]["affected_items"]:
                     for item in server_response2["data"]["affected_items"]:
                         error_message2 += f"\nBlock IP command was sent succesfully to agent with ID: {item}"
             except KeyError:
@@ -244,6 +250,7 @@ def ar_restart_agent(agent_id):
     response_message = ''
     response_message2 = ''
     error_message2 = ''
+    message_to_AI = '***THIS IS WHAT HAPPENED WHEN YOU, ALICE, ATTEMPTED TO RESTA-RT THE WAZUH AGENT: '
     # Get authentication token
     try:
         command = f'curl -u {userdata.AUTH_ACC}:{userdata.AUTH_PASS} -k -X GET "https://{userdata.WAZUH_IP}:55000/security/user/authenticate"'
@@ -297,13 +304,14 @@ def ar_restart_agent(agent_id):
     except Exception:
         response_message += "\n**API Command to restart Wazuh agent on Linux device failed.**"
     if response_message != response_message2:
-        message_to_AI = response_message + response_message2
+        message_to_AI += response_message + response_message2
     else:
-        message_to_AI = response_message
+        message_to_AI += response_message
 
     #TODO: ADD COMMAND FOR MAC DEVICES*****************************************************************************************************
     message_to_AI = message_to_AI.replace("all agents", f'agent {agent_id}')
     message_to_AI = message_to_AI.replace("AR", "Restart")
+    message_to_AI += "***"
     return message_to_AI
 
 
@@ -311,5 +319,5 @@ def ar_restart_agent(agent_id):
 # Get logs for given date
 if __name__ == '__main__':
     #print(get_logs('2023.03.09'))
-    print(ar_block_ip("102.164.61.121"))
-    #print(ar_restart_agent("002"))
+    #print(ar_block_ip("102.164.61.121"))
+    print(ar_restart_agent("002"))
