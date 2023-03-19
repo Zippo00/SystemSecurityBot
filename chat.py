@@ -68,6 +68,25 @@ def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.4, top_p=1.0, max_to
     return text, tokens_total
 
 
+def remove_sentence(response_to_scan):
+    '''
+    If a specified sentence is found in parameter response, removes the sentence from it and returns the modified string. If no sentences to remove are found in the given string, returns the original string.
+    :param response: (string) Completion message from ChatGPT.
+    :return: (string) The message given as parameter without the specified sentences.
+    '''
+    if not isinstance(response_to_scan, str):
+        return "Parameter response must be a string."
+    to_remove =  ["Based on the logs you provided,", "Based on the logs you provided.", "Based on the logs you provided", "based on the logs you provided,", "based on the logs you provided.", "based on the logs you provided", "Based on logs you provided,", "Based on logs you provided.", "Based on logs you provided", "based on logs you provided,", "based on logs you provided.", "based on logs you provided"]
+    for sentence in to_remove:
+        if sentence in response_to_scan:
+            response_to_scan = response_to_scan.replace(sentence, "")
+    while response_to_scan[0] == " ":
+        response_to_scan = response_to_scan[1:]
+    if response_to_scan[0].isupper() == False:
+        response_to_scan = response_to_scan[0].upper() + response_to_scan[1:]
+    return response_to_scan
+
+
 def dates_check(input_to_scan):
     '''
     Checks the given input for any dates in acceptable formats. If found, converts the date into
@@ -310,6 +329,8 @@ if __name__ == '__main__':
         conversation[-1] = ast.literal_eval(conversation[-1].replace('\r','\\r').replace('\n','\\n'))
         # Get response from AI
         response, tokens = gpt35t_completion(conversation)
+        # Remove any unwanted sentences from the AI's response
+        response = remove_sentence(response)
         if response == "Exception occured":
             print("Something went wrong. Please try again later.")
             exit()
