@@ -13,6 +13,7 @@ import wazuhfunctions
 def open_file(filepath):
     '''
     Open a file.
+
     :param filepath: (string) Path to the file.
     :return: Opened file.
     '''
@@ -56,7 +57,7 @@ def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.4, top_p=1.0, max_to
     except openai.error.InvalidRequestError:
         # Most likely token limit exceeded.
         if len(prompt) < 3:
-            # TODO: Cut logs off if they exceed 4000 tokens. *********************************************************************************************************
+            # TODO: Cut logs off if they exceed 4000 tokens. *********************************
             return text, tokens_total
         for item in range(int(len(prompt)/2)):
             prompt.pop(2)
@@ -72,13 +73,22 @@ def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.4, top_p=1.0, max_to
 
 def remove_sentence(response_to_scan):
     '''
-    If a specified sentence is found in parameter response, removes the sentence from it and returns the modified string. If no sentences to remove are found in the given string, returns the original string.
+    If a specified sentence is found in parameter response, removes the sentence from it and returns the modified string. 
+    If no sentences to remove are found in the given string, returns the original string.
+
     :param response: (string) Completion message from ChatGPT.
     :return: (string) The message given as parameter without the specified sentences.
     '''
     if not isinstance(response_to_scan, str):
         return "Parameter response must be a string."
-    to_remove =  ["Based on the logs you provided,", "Based on the logs you provided.", "Based on the logs you provided", "based on the logs you provided,", "based on the logs you provided.", "based on the logs you provided", "Based on logs you provided,", "Based on logs you provided.", "Based on logs you provided", "based on logs you provided,", "based on logs you provided.", "based on logs you provided"]
+    to_remove =  [
+                    "Based on the logs you provided,", "Based on the logs you provided.", 
+                    "Based on the logs you provided", "based on the logs you provided,", 
+                    "based on the logs you provided.", "based on the logs you provided", 
+                    "Based on logs you provided,", "Based on logs you provided.", 
+                    "Based on logs you provided", "based on logs you provided,", 
+                    "based on logs you provided.", "based on logs you provided"
+                    ]
     for sentence in to_remove:
         if sentence in response_to_scan:
             response_to_scan = response_to_scan.replace(sentence, "")
@@ -301,7 +311,7 @@ if __name__ == '__main__':
             LOG_FLAG = True
         # Ask user for prompt
         user_input = input('USER: ')
-        # Scan the user input for dates in formats dd.mm.yyy, yyyy.mm.dd, or dd.mm
+        # Scan the user input for dates in formats dd.mm.yyy, yyyy.mm.dd, dd.mm, "Jan 1st", "1 January", "Jan 1", "1st of January"
         dates = dates_check(user_input)
         if dates:
             latest_logs = ""
@@ -315,11 +325,12 @@ if __name__ == '__main__':
                 for j in logs:
                     latest_logs += j
                     user_input += j
-        
+        # If AI completion triggered the RESTART_AGENT_FLAG
         if RESTART_AGENT_FLAG:
             RESTART_AGENT_FLAG = False
-            for i in ("yes", "Yes", "sure", "Sure", "proceed", "Proceed", "certainly", "Certainly"):
+            for i in ("yes", "Yes", "sure", "Sure", "proceed", "Proceed", "certainly", "Certainly", "absolutely", "Absolutely"):
                 if i in user_input:
+                    # If user's input contained a keyword suggesting they want to restart a wazuh agent, try to do so.
                     if not active_responses:
                         active_responses = active_response_scan(conversation[-1]["content"])
                         if not active_responses:
@@ -330,6 +341,7 @@ if __name__ == '__main__':
                             active_responses = active_response_scan(string_to_scan)
                             break
             if not active_responses:
+                # Also check if the user's input only contained the ID of agent to be restarted, if yes try to do so.
                 if any(char.isdigit() for char in user_input):
                     active_responses = active_response_scan(conversation[-1]["content"] + user_input)
                     if not active_responses:
@@ -343,14 +355,17 @@ if __name__ == '__main__':
         if active_responses:
             for response in active_responses:
                 user_input += response
+        # If AI completion triggered the BLOCK_IP_FLAG
         if BLOCK_IP_FLAG:
             BLOCK_IP_FLAG = False
-            for i in ("yes", "Yes", "sure", "Sure", "proceed", "Proceed", "certainly", "Certainly"):
+            for i in ("yes", "Yes", "sure", "Sure", "proceed", "Proceed", "certainly", "Certainly", "absolutely", "Absolutely"):
                 if i in user_input:
+                    # If user's input contained a keyword suggesting they want the IP address to be blocked, try to do so.
                     active_responses = active_response_scan(conversation[-1]["content"])
-                    break        
-        # Scan the user input for keywords associated with active response commands and execute them if found.
-        if not active_responses:  
+                    break
+        # Scan the user input for keywords associated with active
+        # response commands and execute them if found.
+        if not active_responses:
             active_responses = active_response_scan(user_input)
         #print(f"\nUser input before appending to convo: {user_input}")
         # Make sure latest analyzed logs stay in memory
@@ -371,13 +386,17 @@ if __name__ == '__main__':
         if response == "Exception occured":
             print("Something went wrong. Please try again later.")
             exit()
-        # Print the AI's response
+        # Check if the reponse contains any keywords associated with restarting a wazuh agent
         for i in ("proceed with the restart", "proceed with restart", "me to restart", "want to restart"):
             if i in response:
+                # If yes, check the RESTART_AGENT_FLAG
                 RESTART_AGENT_FLAG = True
+        # Check if the response contains any keywords associated with blocking an IP address
         for i in ("with blocking", "me to block", "want to block"):
             if i in response:
+                # If yes, check the BLOCK_IP_FLAG
                 BLOCK_IP_FLAG = True
+        # Print the AI's response
         print('Alice:', response)
         #print(f'Total tokens used: {tokens}')
         # Append the AI's response into convo.
