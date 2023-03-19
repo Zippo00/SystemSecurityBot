@@ -210,9 +210,11 @@ def active_response_scan(input_to_scan):
                     executed_responses.append(wazuhfunctions.ar_block_ip(word))
                 except Exception:
                     continue
+            break
     for response in executed_responses:
         if "was sent" in response:
-            message_for_AI.append("***YOU, ALICE, SUCCESFULLY BLOCKED THE IP ADDRESS ON ALL DEVICES CONNECTED TO USER'S WAZUH MANAGER***")
+            #message_for_AI.append("***YOU, ALICE, SUCCESFULLY BLOCKED THE IP ADDRESS ON ALL DEVICES CONNECTED TO USER'S WAZUH MANAGER***")
+            message_for_AI.append(response)
         else:
             message_for_AI.append(response)
     # Scan the input for Agent Restart keywords
@@ -240,6 +242,17 @@ def active_response_scan(input_to_scan):
                             executed_responses.append(wazuhfunctions.ar_restart_agent(words[index + 2]))
                     except IndexError:
                         pass
+                    try:
+                        if words[index + 3].isnumeric():
+                            executed_responses.append(wazuhfunctions.ar_restart_agent(words[index + 3]))
+                    except IndexError:
+                        pass
+                    try:
+                        if words[index + 4].isnumeric():
+                            executed_responses.append(wazuhfunctions.ar_restart_agent(words[index + 4]))
+                    except IndexError:
+                        pass
+            break
     for response in executed_responses:
         if "Restart command was sent" in executed_responses:
             message_for_AI.append("***YOU, ALICE, SUCCESFULLY RESTARTED THE AGENT THROUGH WAZUH API***")

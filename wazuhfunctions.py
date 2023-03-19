@@ -224,6 +224,7 @@ def ar_block_ip(IP_address):
         message_to_AI += " API Command to block IP address on Linux devices failed."
     #TODO: ADD COMMAND FOR MAC DEVICES*****************************************************************************************************
     message_to_AI = message_to_AI.replace("AR", "Block IP")
+    message_to_AI = "***THIS IS WHAT HAPPENED WHEN YOU, ALICE, ATTEMPTED TO BLOCK THE IP ADDRESS: " + message_to_AI + "***"
     return message_to_AI
 
 
@@ -239,6 +240,10 @@ def ar_restart_agent(agent_id):
     '''
     if not isinstance(agent_id, str):
         return "Parameter agent_id must be a string."
+    error_message = ''
+    response_message = ''
+    response_message2 = ''
+    error_message2 = ''
     # Get authentication token
     try:
         command = f'curl -u {userdata.AUTH_ACC}:{userdata.AUTH_PASS} -k -X GET "https://{userdata.WAZUH_IP}:55000/security/user/authenticate"'
@@ -257,10 +262,19 @@ def ar_restart_agent(agent_id):
         server_response = command_line.read()
         command_line.close()
         server_response = json.loads(server_response)
-        response_message = server_response["message"]
+        try:
+            if server_response["data"]["failed_items"]:
+                for item in server_response["data"]["failed_items"]:
+                    error_message = "\n" + item["error"]["message"] + '. '
+        except KeyError:
+            pass
+        if error_message:
+            response_message = error_message
+        response_message += "\n" + server_response["message"]
+        #print(f"Windows response: {server_response}")
         response_message = response_message.replace("all agents", f'agent {agent_id}')
     except Exception:
-        response_message = "API Command to restart Wazuh agent on Windows device failed."
+        response_message = "\n**API Command to restart Wazuh agent on Windows device failed.**"
 
     # Restart agent command for Linux
     try:
@@ -269,19 +283,33 @@ def ar_restart_agent(agent_id):
         server_response = command_line.read()
         command_line.close()
         server_response = json.loads(server_response)
-        response_message = server_response["message"]
-        response_message = response_message.replace("all agents", f'agent {agent_id}')
+        try:
+            if server_response["data"]["failed_items"]:
+                for item in server_response["data"]["failed_items"]:
+                    error_message2 = "\n" + item["error"]["message"] + '. '
+        except KeyError:
+            pass
+        if error_message2:
+            response_message2 = error_message2
+        #print(f"Linux response: {server_response}")
+        response_message2 += "\n" + server_response["message"]
+        response_message2 = response_message.replace("all agents", f'agent {agent_id}')
     except Exception:
-        response_message += "API Command to restart Wazuh agent on Linux device failed."
+        response_message += "\n**API Command to restart Wazuh agent on Linux device failed.**"
+    if response_message != response_message2:
+        message_to_AI = response_message + response_message2
+    else:
+        message_to_AI = response_message
 
     #TODO: ADD COMMAND FOR MAC DEVICES*****************************************************************************************************
-    response_message = response_message.replace("AR", "Restart")
-    return response_message
+    message_to_AI = message_to_AI.replace("all agents", f'agent {agent_id}')
+    message_to_AI = message_to_AI.replace("AR", "Restart")
+    return message_to_AI
 
 
 
 # Get logs for given date
 if __name__ == '__main__':
-    #print(get_logs('2023.03.18'))
+    #print(get_logs('2023.03.09'))
     print(ar_block_ip("102.164.61.121"))
     #print(ar_restart_agent("002"))
