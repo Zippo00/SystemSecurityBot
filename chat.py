@@ -57,7 +57,7 @@ def gpt35t_completion(prompt, model='gpt-3.5-turbo', temp=0.4, top_p=1.0, max_to
     except openai.error.InvalidRequestError:
         # Most likely token limit exceeded.
         if len(prompt) < 3:
-            # TODO: Cut logs off if they exceed 4000 tokens. *********************************
+            # TODO: Cut logs off if they exceed 4000 tokens.
             return text, tokens_total
         for item in range(int(len(prompt)/2)):
             prompt.pop(2)
@@ -124,47 +124,64 @@ def dates_check(input_to_scan):
     date = ''
     punctuations = [".", ",", "?", "!", "-", "_", "'", '"', "=", "<", ">"]
     ordinals = ["st", "nd", "rd", "th"]
+    # Split the input into single words
     words = input_to_scan.split()
     for word in words:
         raw_day = ""
-        while word[-1] in punctuations:
-            word = word[:-1]
-        while word[0] in punctuations:
-            word = word[1:]
+        if len(word) > 1:
+            # Remove punctuations from beginning and end of the word, if there are any
+            while word[-1] in punctuations:
+                word = word[:-1]
+            while word[0] in punctuations:
+                word = word[1:]
+        # Remove potential ordinals "1st" --> "1"
         for ordinal in ordinals:
             if ordinal in word:
+                # If ordinal was found and removed, store the modified word into variable raw_day
                 raw_day = word.replace(f"{ordinal}", "")
+        # Check if the word is a date in a specified format
         for dateformat in formats:
             try:
                 datecheck = bool(datetime.strptime(word, dateformat))
+                # If the program gets here, the word was a date in specified format
+                # Format the date into yyyy.mm.dd
                 formatted_date = reformat_date(word, dateformat)
                 formatted_dates.append(formatted_date)
 
             except ValueError:
                 datecheck = False
+        # Check if the word matches a format in formats_day
         for day_format in formats_day:
             try:
                 if raw_day:
                     if bool(datetime.strptime(raw_day, day_format)):
+                        # If matches and raw_day variable isn't empty, raw_day is a day
+                        # (And not some random word with a ordinal in it e.g. 'STable') 
                         day = raw_day
                 else:
+                    # If raw_day variable is empty, but word matches a format in day_format
                     if bool(datetime.strptime(word, day_format)):
                         day = word
             except ValueError:
                 continue
+        # Check if the word matches a format in formats_month
         for month_format in formats_month:
             try:
                 if bool(datetime.strptime(word, month_format)):
+                    # If matches, store the month and format into variables
                     month = word
                     format_m = month_format
             except ValueError:
                 continue
+        # If both day and month were found in the given input
         if day and month:
+            # Add current year into the mix, and format the date into yyyy.mm.dd
             current_year = str(datetime.now().year)
             date = datetime.strptime(day + month + current_year, f"%d{format_m}%Y").strftime('%Y.%m.%d')
             formatted_dates.append(date)
             day = ''
             month = ''
+    # Return found dates in yyyy.mm.dd
     return formatted_dates
 
 
@@ -175,9 +192,9 @@ def reformat_date(date, curr_format):
 
     :param date: (string) A date as a string.
     :param curr_format: (string) Format of the date e.g. "%d.%m.%Y"
-    :return: (string) Given date in proper format.
+    :return: (string) Given date in format yyyy.mm.dd
 
-     '''
+    '''
     if not isinstance(date, str):
         raise ValueError("date parameter needs to be a string.")
     if not isinstance(curr_format, str):
@@ -190,16 +207,22 @@ def reformat_date(date, curr_format):
                     "%d.%m.,", "%d.%m..", "%d.%m.!", "%d.%m.?"
                     ]
     punctuations = [".", ",", "?", "!", "-", "_", "'", '"', "=", "<", ">"]
+    # If any punctuations at the end or beginning of the given date, remove them.
     while date[-1] in punctuations:
         date = date[:-1]
+    # If date already in format yyyy.mm.dd, return it
     if curr_format in ready_formats:
         return date
+    # If format of the date is in modify_formats, change the format into yyyy.mm.dd
     if curr_format in modify_formats:
         date = datetime.strptime(date, '%d.%m.%Y').strftime('%Y.%m.%d')
+    # If format of the date is in short_formats, throw current year into the mix and change
+    # the format into yyyy.mm.dd
     if curr_format in short_formats:
         current_year = str(datetime.now().year)
         date = date + "." + current_year
         date = datetime.strptime(date, '%d.%m.%Y').strftime('%Y.%m.%d')
+    # Return the given date in format yyyy.mm.dd
     return date
 
 def active_response_scan(input_to_scan):
@@ -229,13 +252,14 @@ def active_response_scan(input_to_scan):
     # Scan the input for Block IP keywords
     for keyword in ip_keywords:
         if keyword in input_to_scan:
-            # If found scan the input for IP address
+            # If found, scan the input for IP address
             words = input_to_scan.split()
             for word in words:
-                while word[-1] in punctuations:
-                    word = word[:-1]
-                while word[0] in punctuations:
-                    word = word[1:]
+                if len(word) > 1:
+                    while word[-1] in punctuations:
+                        word = word[:-1]
+                    while word[0] in punctuations:
+                        word = word[1:]
                 try:
                     ipaddress.ip_address(word)
                     # If found, run block IP API command and append the response into list
@@ -257,10 +281,11 @@ def active_response_scan(input_to_scan):
             words = input_to_scan.split()
 
             for index, word in enumerate(words):
-                while word[-1] in punctuations:
-                    word = word[:-1]
-                while word[0] in punctuations:
-                    word = word[1:]
+                if len(word) > 1:
+                    while word[-1] in punctuations:
+                        word = word[:-1]
+                    while word[0] in punctuations:
+                        word = word[1:]
                 if word in ("agent", "agnt", "aent", "agen", "id", "agentid", "agntid", "restart", "restar", "restrat"):
                     # When "id", "agent", "restart" or misspelled equivalent is found, make the educated
                     # guess that either one of the following words is the ID number.
@@ -296,7 +321,7 @@ def active_response_scan(input_to_scan):
 #TODO: Improve IP Block algorithm. Alice might reply might IP addresses. User should be able to reply with "block those ip addresses" or "block that ip address" - scan the previous Alice msg for IP addresses. ***Might block user's IP addresses!!****
 if __name__ == '__main__':
     # ChatAI System Message
-    conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs generated by Wazuh, block IP addresses and restart Wazuh agents. If user message includes 'Block IP command was sent to all agents', you have succesfully blocked the IP address. If user message includes 'Restart command was sent to agent 002', you have succesfully restarted the agent. If user prompts you with a date in format yyyy.mm.dd, dd.mm.yyyy or dd.mm, you get the logs through Wazuh API. Log data is in format ***LOG DATA: ****"}]
+    conversation = [{"role": "system", "content" : "You are a cyber security assistant called Alice. You aim to assist the user with cyber security and you have the ability to analyze system logs generated by Wazuh, block IP addresses and restart Wazuh agents. If user message includes 'Block IP command was sent to all agents', you have succesfully blocked the IP address. If user message includes 'Restart command was sent to agent', you have succesfully restarted the agent. If user prompts you with a date, you get the logs through Wazuh API. Log data is in format ***LOG DATA: ****"}]
     LOG_FLAG = False
     RESTART_AGENT_FLAG = False
     BLOCK_IP_FLAG = False
@@ -368,6 +393,7 @@ if __name__ == '__main__':
         if not active_responses:
             active_responses = active_response_scan(user_input)
         #print(f"\nUser input before appending to convo: {user_input}")
+
         # Make sure latest analyzed logs stay in memory
         if LOG_FLAG:
             LOG_FLAG = False

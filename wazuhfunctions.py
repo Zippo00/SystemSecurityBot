@@ -7,7 +7,7 @@ import traceback
 from datetime import datetime
 from user_data import userdata
 
-
+#TODO: Change popens to a safer alternative
 def get_logs(date):
     '''
     Get wazuh logs for given date from elasticsearch API. Return meaningful events as a list.
