@@ -252,8 +252,8 @@ def active_response_scan(input_to_scan):
                 while word[0] in punctuations:
                     word = word[1:]
                 if word in ("agent", "agnt", "aent", "agen", "id", "agentid", "agntid", "restart", "restar", "restrat"):
-                    # When "id", "agent" or misspelled equivalent is found, make the educated
-                    # guess that either next word or the word after the next is the ID number.
+                    # When "id", "agent", "restart" or misspelled equivalent is found, make the educated
+                    # guess that either one of the following words is the ID number.
                     try:
                         if words[index + 1].isnumeric():
                             executed_responses.append(wazuhfunctions.ar_restart_agent(words[index + 1]))
@@ -315,8 +315,7 @@ if __name__ == '__main__':
                 for j in logs:
                     latest_logs += j
                     user_input += j
-        # Scan the user input for keywords associated with active response commands and execute them if found.
-        active_responses = active_response_scan(user_input)
+        
         if RESTART_AGENT_FLAG:
             RESTART_AGENT_FLAG = False
             for i in ("yes", "Yes", "sure", "Sure", "proceed", "Proceed", "certainly", "Certainly"):
@@ -329,6 +328,7 @@ if __name__ == '__main__':
                             for word in words:
                                 string_to_scan += " " + word
                             active_responses = active_response_scan(string_to_scan)
+                            break
             if not active_responses:
                 if any(char.isdigit() for char in user_input):
                     active_responses = active_response_scan(conversation[-1]["content"] + user_input)
@@ -343,6 +343,15 @@ if __name__ == '__main__':
         if active_responses:
             for response in active_responses:
                 user_input += response
+        if BLOCK_IP_FLAG:
+            BLOCK_IP_FLAG = False
+            for i in ("yes", "Yes", "sure", "Sure", "proceed", "Proceed", "certainly", "Certainly"):
+                if i in user_input:
+                    active_responses = active_response_scan(conversation[-1]["content"])
+                    break        
+        # Scan the user input for keywords associated with active response commands and execute them if found.
+        if not active_responses:  
+            active_responses = active_response_scan(user_input)
         #print(f"\nUser input before appending to convo: {user_input}")
         # Make sure latest analyzed logs stay in memory
         if LOG_FLAG:
@@ -366,6 +375,9 @@ if __name__ == '__main__':
         for i in ("proceed with the restart", "proceed with restart", "me to restart", "want to restart"):
             if i in response:
                 RESTART_AGENT_FLAG = True
+        for i in ("with blocking", "me to block", "want to block"):
+            if i in response:
+                BLOCK_IP_FLAG = True
         print('Alice:', response)
         #print(f'Total tokens used: {tokens}')
         # Append the AI's response into convo.
