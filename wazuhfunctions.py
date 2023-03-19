@@ -154,6 +154,7 @@ def ar_block_ip(IP_address):
     '''
     if not isinstance(IP_address, str):
         return "Parameter IP_address must be a string."
+    error_message = ""
     # Get authentication token
     try:
         command = f'curl -u {userdata.AUTH_ACC}:{userdata.AUTH_PASS} -k -X GET "https://{userdata.WAZUH_IP}:55000/security/user/authenticate"'
@@ -172,9 +173,28 @@ def ar_block_ip(IP_address):
         server_response = command_line.read()
         command_line.close()
         server_response = json.loads(server_response)
+        #print(f"Windows server response: {server_response}")
+        try:
+            if server_response["data"]["failed_items"]:
+                for item in server_response["data"]["failed_items"]:
+                    error_message = "\n" + item["error"]["message"] + f'. Agent ID: {item["id"]}.'
+            try:
+                if server_response["data"]["affected_items"]:
+                    for item in server_response["data"]["affected_items"]:
+                        error_message += f"\nBlock IP command was sent succesfully to agent with ID: {item}"
+            except KeyError:
+                pass
+        except KeyError:
+            pass
+        
         response_message = server_response["message"]
+        if error_message:
+            response_message += error_message
+
+        message_to_AI = "\n" + response_message
     except Exception:
-        response_message = "API Command to block IP address on Windows devices failed."
+        traceback.print_exc()
+        message_to_AI = "API Command to block IP address on Windows devices failed."
     # Block IP command for Linux agents
     try:
         command2 = f'curl -k -X PUT "https://{userdata.WAZUH_IP}:55000/active-response?wait_for_complete=true" -H "Authorization: Bearer {token}" ' + '-H "Content-Type: application/json" -d "{\\"command\\":\\"!firewall-drop\\",\\"alert\\":{\\"data\\":{\\"srcip\\":' + f'\\"{IP_address}\\"' +'}}}"'
@@ -182,13 +202,29 @@ def ar_block_ip(IP_address):
         server_response2 = command_line.read()
         command_line.close()
         server_response2 = json.loads(server_response2)
-        if server_response2["message"] != response_message:
-            response_message += server_response2["message"]
+        #print(f"Linux server response: {server_response2}")
+        try:
+            if server_response2["data"]["failed_items"]:
+                for item in server_response2["data"]["failed_items"]:
+                    error_message2 = "\n" + item["error"]["message"] + f'. Agent ID: {item["id"]}.'
+            try:
+                if server_response2["data"]["affected_items"]:
+                    for item in server_response2["data"]["affected_items"]:
+                        error_message2 += f"\nBlock IP command was sent succesfully to agent with ID: {item}"
+            except KeyError:
+                pass
+        except KeyError:
+            pass
+        response_message2 = server_response2["message"]
+        if error_message2:
+            response_message2 += error_message2
+        if response_message2 != response_message:
+            message_to_AI += "\n" + response_message2
     except Exception:
-        response_message += " API Command to block IP address on Linux devices failed."
+        message_to_AI += " API Command to block IP address on Linux devices failed."
     #TODO: ADD COMMAND FOR MAC DEVICES*****************************************************************************************************
-    response_message = response_message.replace("AR", "Block IP")
-    return response_message
+    message_to_AI = message_to_AI.replace("AR", "Block IP")
+    return message_to_AI
 
 
         
@@ -246,6 +282,6 @@ def ar_restart_agent(agent_id):
 
 # Get logs for given date
 if __name__ == '__main__':
-    print(get_logs('2023.03.18'))
-    print(ar_block_ip("166.196.176.152"))
-    print(ar_restart_agent("002"))
+    #print(get_logs('2023.03.18'))
+    print(ar_block_ip("102.164.61.121"))
+    #print(ar_restart_agent("002"))
