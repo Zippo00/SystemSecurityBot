@@ -1,0 +1,15 @@
+.message {
+  background-color: hsl(0deg 0% 100% / 11%);
+  position: relative;
+  display: flex;
+  bottom: 40px;
+}
+
+.message:nth-child(even) {
+  background-color: hsl(0deg 0% 0% / 11%);
+}
+
+.message img {
+  width: 60px;
+  height: 100%;
+}

@@ -1,0 +1,12 @@
+openai
+datetime
+ipaddress
+flask
+Flask
+flask_cors
+Click
+itsdangerous
+Jinja2
+MarkupSafe
+uWSGI
+Werkzeug
